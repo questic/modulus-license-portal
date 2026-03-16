@@ -30,7 +30,7 @@
 </div>
 
 <!-- ═══════════════════════════════ DASHBOARD ════════════════════════════════ -->
-<div class="page-center hidden" id="dashboard-screen" style="justify-content:flex-start; padding: 32px 16px;">
+<div class="page-center hidden" id="dashboard-screen" style="justify-content:flex-start; padding: 24px 16px; align-items:stretch;">
   <div class="card card--wide">
     <div class="admin-header">
       <div class="logo">Modulus — Лицензии</div>
@@ -57,12 +57,14 @@
             <th>Контакт</th>
             <th>Machine ID</th>
             <th>Дата</th>
+            <th>Срок</th>
+            <th>Функции</th>
             <th>Статус</th>
             <th>Действия</th>
           </tr>
         </thead>
         <tbody id="requests-body">
-          <tr><td colspan="6" class="empty">Загрузка…</td></tr>
+          <tr><td colspan="8" class="empty">Загрузка…</td></tr>
         </tbody>
       </table>
     </div>
@@ -231,7 +233,7 @@ async function loadRequests() {
     }
 
     if (!rows.length) {
-      tbody.innerHTML = '<tr><td colspan="6" class="empty">Заявок нет</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="8" class="empty">Заявок нет</td></tr>';
       return;
     }
 
@@ -241,12 +243,20 @@ async function loadRequests() {
         r.telegram_chat_id ? `✈ ${escHtml(r.telegram_chat_id)}` : '',
       ].filter(Boolean).join('<br>') || '—';
       const tg = escHtml(r.telegram_chat_id ?? '');
+      const expiry = r.status === 'approved'
+        ? (r.expires_at ? fmtDate(r.expires_at) : '<span style="color:#16a34a;font-weight:600">бессрочная</span>')
+        : '—';
+      const features = r.status === 'approved' && r.features && r.features.length
+        ? r.features.map(f => `<span class="badge badge--feature">${featureLabel(f)}</span>`).join(' ')
+        : '—';
       return `
       <tr data-id="${r.id}">
         <td>${escHtml(r.name)}</td>
         <td style="font-size:12px">${contact}</td>
         <td class="mono">${escHtml(r.machine_id)}</td>
         <td style="white-space:nowrap">${fmtDate(r.created_at)}</td>
+        <td style="white-space:nowrap">${expiry}</td>
+        <td>${features}</td>
         <td><span class="badge badge--${r.status}">${statusLabel(r.status)}</span></td>
         <td>
           <div class="actions">
@@ -276,6 +286,9 @@ async function loadRequests() {
 
 function statusLabel(s) {
   return { pending: 'Ожидает', approved: 'Одобрена', rejected: 'Отклонена' }[s] ?? s;
+}
+function featureLabel(f) {
+  return { libraries: 'Библиотеки' }[f] ?? f;
 }
 
 // ─── approve modal ───────────────────────────────────────────────────────────
