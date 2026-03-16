@@ -1,0 +1,44 @@
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { cors, handleOptions } from '../_shared/cors.ts';
+import { sendRejectionEmail } from '../_shared/email.ts';
+
+Deno.serve(async (req) => {
+  if (req.method === 'OPTIONS') return handleOptions();
+
+  const password = req.headers.get('x-admin-password');
+  if (!password || password !== Deno.env.get('ADMIN_PASSWORD')) {
+    return cors({ error: 'Unauthorized' }, 401);
+  }
+
+  try {
+    const { id } = await req.json();
+    if (!id) return cors({ error: 'id обязателен' }, 400);
+
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
+    );
+
+    const { data: request, error: fetchErr } = await supabase
+      .from('license_requests')
+      .select('name, email')
+      .eq('id', id)
+      .single();
+
+    if (fetchErr || !request) return cors({ error: 'Заявка не найдена' }, 404);
+
+    const { error: updateErr } = await supabase
+      .from('license_requests')
+      .update({ status: 'rejected', updated_at: new Date().toISOString() })
+      .eq('id', id);
+
+    if (updateErr) throw updateErr;
+
+    await sendRejectionEmail(request.email, request.name).catch(console.error);
+
+    return cors({ ok: true });
+  } catch (err) {
+    console.error(err);
+    return cors({ error: 'Ошибка сервера' }, 500);
+  }
+});

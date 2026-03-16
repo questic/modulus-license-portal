@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Панель администратора — Modulus</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+<!-- ═══════════════════════════════ LOGIN ═══════════════════════════════════ -->
+<div class="page-center" id="login-screen">
+  <div class="card">
+    <div class="logo">Modulus</div>
+    <h1>Панель администратора</h1>
+    <p class="subtitle">Введите пароль для входа</p>
+
+    <div class="alert alert--error hidden" id="login-error">Неверный пароль</div>
+
+    <form id="login-form">
+      <div class="form-group">
+        <label for="password">Пароль</label>
+        <input type="password" id="password" autofocus required />
+      </div>
+      <button type="submit" class="btn btn--primary btn--full" id="login-btn">
+        Войти
+      </button>
+    </form>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════ DASHBOARD ════════════════════════════════ -->
+<div class="page-center hidden" id="dashboard-screen" style="justify-content:flex-start; padding: 32px 16px;">
+  <div class="card card--wide">
+    <div class="admin-header">
+      <div class="logo">Modulus — Лицензии</div>
+      <div class="admin-meta">
+        <button class="btn btn--ghost btn--sm" id="logout-btn">Выйти</button>
+        <button class="btn btn--ghost btn--sm" id="refresh-btn" style="margin-left:6px">↻ Обновить</button>
+      </div>
+    </div>
+
+    <div class="tabs">
+      <div class="tab active" data-status="pending">Ожидают <span id="cnt-pending" class="cnt"></span></div>
+      <div class="tab" data-status="approved">Одобрены</div>
+      <div class="tab" data-status="rejected">Отклонены</div>
+      <div class="tab" data-status="all">Все</div>
+    </div>
+
+    <div class="alert alert--error hidden" id="dash-error"></div>
+
+    <div class="table-wrap">
+      <table id="requests-table">
+        <thead>
+          <tr>
+            <th>Имя</th>
+            <th>E-mail</th>
+            <th>Machine ID</th>
+            <th>Дата</th>
+            <th>Статус</th>
+            <th>Действия</th>
+          </tr>
+        </thead>
+        <tbody id="requests-body">
+          <tr><td colspan="6" class="empty">Загрузка…</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════ APPROVE MODAL ═══════════════════════════ -->
+<div class="modal-overlay hidden" id="approve-modal">
+  <div class="modal">
+    <h2>Одобрить заявку</h2>
+    <input type="hidden" id="approve-id" />
+
+    <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:14px;margin-bottom:18px;font-size:13px;">
+      <div><b id="ap-name"></b></div>
+      <div style="color:#64748b" id="ap-email"></div>
+      <div class="mono" style="margin-top:4px" id="ap-mid"></div>
+    </div>
+
+    <div class="form-group">
+      <label for="approve-expires">Срок действия (оставьте пустым — бессрочная)</label>
+      <input type="date" id="approve-expires" />
+    </div>
+
+    <div class="form-group">
+      <label>Функции</label>
+      <div class="checkbox-group">
+        <label><input type="checkbox" value="libraries" class="feature-cb" /> Пользовательские библиотеки</label>
+      </div>
+    </div>
+
+    <div class="alert alert--error hidden" id="approve-error"></div>
+
+    <div class="modal-footer">
+      <button class="btn btn--ghost" id="approve-cancel">Отмена</button>
+      <button class="btn btn--primary" id="approve-confirm">
+        Выдать ключ
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════ KEY MODAL ════════════════════════════════ -->
+<div class="modal-overlay hidden" id="key-modal">
+  <div class="modal">
+    <h2>Лицензионный ключ выдан ✓</h2>
+    <p style="font-size:13px;color:#64748b;margin-bottom:12px">Ключ отправлен на почту пользователя. Вы также можете скопировать его здесь:</p>
+    <div class="copy-row">
+      <div class="key-box" id="key-display"></div>
+      <button class="btn btn--ghost btn--sm" id="copy-key-btn" style="white-space:nowrap">Копировать</button>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn--primary" id="key-close">Закрыть</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════ REJECT MODAL ════════════════════════════ -->
+<div class="modal-overlay hidden" id="reject-modal">
+  <div class="modal">
+    <h2>Отклонить заявку</h2>
+    <p style="font-size:14px;color:#64748b;margin-bottom:16px">Пользователь получит уведомление по e-mail.</p>
+    <input type="hidden" id="reject-id" />
+    <div class="alert alert--error hidden" id="reject-error"></div>
+    <div class="modal-footer">
+      <button class="btn btn--ghost" id="reject-cancel">Отмена</button>
+      <button class="btn btn--danger" id="reject-confirm">Отклонить</button>
+    </div>
+  </div>
+</div>
+
+<script src="config.js"></script>
+<script>
+const API = window.SUPABASE_FUNCTIONS_URL;
+let adminPassword = '';
+let currentStatus = 'pending';
+
+// ─── helpers ────────────────────────────────────────────────────────────────
+const $ = (id) => document.getElementById(id);
+function show(id) { $(id).classList.remove('hidden'); }
+function hide(id) { $(id).classList.add('hidden'); }
+function fmtDate(iso) {
+  if (!iso) return '—';
+  return new Date(iso).toLocaleDateString('ru-RU', { day:'2-digit', month:'2-digit', year:'numeric' });
+}
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ─── login ──────────────────────────────────────────────────────────────────
+$('login-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const pwd = $('password').value;
+  const btn = $('login-btn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span>';
+  hide('login-error');
+
+  // Проверяем пароль реальным запросом
+  const res = await fetch(`${API}/list-requests?status=pending`, {
+    headers: { 'x-admin-password': pwd },
+  });
+
+  if (res.status === 401) {
+    show('login-error');
+    btn.disabled = false;
+    btn.textContent = 'Войти';
+    return;
+  }
+
+  adminPassword = pwd;
+  sessionStorage.setItem('adminPwd', pwd);
+  hide('login-screen');
+  show('dashboard-screen');
+  loadRequests();
+  btn.disabled = false;
+  btn.textContent = 'Войти';
+});
+
+// Восстановить сессию
+(function tryRestore() {
+  const saved = sessionStorage.getItem('adminPwd');
+  if (saved) {
+    adminPassword = saved;
+    hide('login-screen');
+    show('dashboard-screen');
+    loadRequests();
+  }
+})();
+
+$('logout-btn').addEventListener('click', () => {
+  sessionStorage.removeItem('adminPwd');
+  adminPassword = '';
+  hide('dashboard-screen');
+  show('login-screen');
+});
+
+$('refresh-btn').addEventListener('click', loadRequests);
+
+// ─── tabs ────────────────────────────────────────────────────────────────────
+document.querySelectorAll('.tab').forEach((tab) => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    tab.classList.add('active');
+    currentStatus = tab.dataset.status;
+    loadRequests();
+  });
+});
+
+// ─── load ────────────────────────────────────────────────────────────────────
+async function loadRequests() {
+  const tbody = $('requests-body');
+  tbody.innerHTML = '<tr><td colspan="6" class="empty">Загрузка…</td></tr>';
+  hide('dash-error');
+
+  try {
+    const res = await fetch(`${API}/list-requests?status=${currentStatus}`, {
+      headers: { 'x-admin-password': adminPassword },
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const rows = await res.json();
+
+    // Обновить счётчик на вкладке "Ожидают"
+    if (currentStatus === 'pending') {
+      $('cnt-pending').textContent = rows.length ? ` (${rows.length})` : '';
+    }
+
+    if (!rows.length) {
+      tbody.innerHTML = '<tr><td colspan="6" class="empty">Заявок нет</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = rows.map(r => `
+      <tr data-id="${r.id}">
+        <td>${escHtml(r.name)}</td>
+        <td>${escHtml(r.email)}</td>
+        <td class="mono">${escHtml(r.machine_id)}</td>
+        <td style="white-space:nowrap">${fmtDate(r.created_at)}</td>
+        <td><span class="badge badge--${r.status}">${statusLabel(r.status)}</span></td>
+        <td>
+          <div class="actions">
+            ${r.status === 'pending' ? `
+              <button class="btn btn--primary btn--sm" onclick="openApprove('${r.id}','${escHtml(r.name)}','${escHtml(r.email)}','${escHtml(r.machine_id)}')">
+                ✓ Одобрить
+              </button>
+              <button class="btn btn--danger btn--sm" onclick="openReject('${r.id}')">
+                ✕ Отклонить
+              </button>
+            ` : ''}
+            ${r.status === 'approved' && r.license_key ? `
+              <button class="btn btn--ghost btn--sm" onclick="showKey('${escHtml(r.license_key)}')">
+                Показать ключ
+              </button>
+            ` : ''}
+          </div>
+        </td>
+      </tr>
+    `).join('');
+  } catch (err) {
+    $('dash-error').textContent = err.message;
+    show('dash-error');
+    tbody.innerHTML = '';
+  }
+}
+
+function statusLabel(s) {
+  return { pending: 'Ожидает', approved: 'Одобрена', rejected: 'Отклонена' }[s] ?? s;
+}
+
+// ─── approve modal ───────────────────────────────────────────────────────────
+function openApprove(id, name, email, mid) {
+  $('approve-id').value = id;
+  $('ap-name').textContent  = name;
+  $('ap-email').textContent = email;
+  $('ap-mid').textContent   = mid;
+  $('approve-expires').value = '';
+  document.querySelectorAll('.feature-cb').forEach(cb => cb.checked = false);
+  hide('approve-error');
+  $('approve-confirm').disabled = false;
+  $('approve-confirm').textContent = 'Выдать ключ';
+  show('approve-modal');
+}
+
+$('approve-cancel').addEventListener('click', () => hide('approve-modal'));
+$('approve-modal').addEventListener('click', (e) => { if (e.target === $('approve-modal')) hide('approve-modal'); });
+
+$('approve-confirm').addEventListener('click', async () => {
+  const id       = $('approve-id').value;
+  const expiresAt = $('approve-expires').value || null;
+  const features = [...document.querySelectorAll('.feature-cb:checked')].map(cb => cb.value);
+  const btn = $('approve-confirm');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> Выдача…';
+  hide('approve-error');
+
+  try {
+    const res = await fetch(`${API}/approve-request`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-admin-password': adminPassword },
+      body: JSON.stringify({ id, expiresAt, features }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error ?? `HTTP ${res.status}`);
+
+    hide('approve-modal');
+    $('key-display').textContent = data.licenseKey;
+    show('key-modal');
+    loadRequests();
+  } catch (err) {
+    $('approve-error').textContent = err.message;
+    show('approve-error');
+    btn.disabled = false;
+    btn.textContent = 'Выдать ключ';
+  }
+});
+
+// ─── key modal ───────────────────────────────────────────────────────────────
+function showKey(key) {
+  $('key-display').textContent = key;
+  show('key-modal');
+}
+$('key-close').addEventListener('click', () => hide('key-modal'));
+$('key-modal').addEventListener('click', (e) => { if (e.target === $('key-modal')) hide('key-modal'); });
+$('copy-key-btn').addEventListener('click', () => {
+  navigator.clipboard.writeText($('key-display').textContent).then(() => {
+    $('copy-key-btn').textContent = 'Скопировано!';
+    setTimeout(() => $('copy-key-btn').textContent = 'Копировать', 1500);
+  });
+});
+
+// ─── reject modal ────────────────────────────────────────────────────────────
+function openReject(id) {
+  $('reject-id').value = id;
+  hide('reject-error');
+  $('reject-confirm').disabled = false;
+  $('reject-confirm').textContent = 'Отклонить';
+  show('reject-modal');
+}
+
+$('reject-cancel').addEventListener('click', () => hide('reject-modal'));
+$('reject-modal').addEventListener('click', (e) => { if (e.target === $('reject-modal')) hide('reject-modal'); });
+
+$('reject-confirm').addEventListener('click', async () => {
+  const id  = $('reject-id').value;
+  const btn = $('reject-confirm');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span>';
+  hide('reject-error');
+
+  try {
+    const res = await fetch(`${API}/reject-request`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-admin-password': adminPassword },
+      body: JSON.stringify({ id }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error ?? `HTTP ${res.status}`);
+
+    hide('reject-modal');
+    loadRequests();
+  } catch (err) {
+    $('reject-error').textContent = err.message;
+    show('reject-error');
+    btn.disabled = false;
+    btn.textContent = 'Отклонить';
+  }
+});
+</script>
+</body>
+</html>

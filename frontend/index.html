@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Активация лицензии — Modulus</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+<div class="page-center">
+  <div class="card" id="form-card">
+    <div class="logo">Modulus</div>
+    <h1>Активация лицензии</h1>
+    <p class="subtitle">Заполните форму — мы вышлем ключ на ваш e-mail</p>
+
+    <div class="alert alert--error hidden" id="alert-error"></div>
+
+    <form id="request-form">
+      <div class="form-group">
+        <label for="name">Имя / Организация *</label>
+        <input type="text" id="name" name="name" placeholder="ООО Ромашка или Иванов И.И." required />
+      </div>
+
+      <div class="form-group">
+        <label for="email">E-mail *</label>
+        <input type="email" id="email" name="email" placeholder="you@company.ru" required />
+      </div>
+
+      <div class="form-group">
+        <label for="machineId">Machine ID *</label>
+        <input type="text" id="machineId" name="machineId" placeholder="xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" required />
+        <p class="hint">Откройте приложение → экран активации → скопируйте Machine ID</p>
+      </div>
+
+      <button type="submit" class="btn btn--primary btn--full" id="submit-btn">
+        Отправить заявку
+      </button>
+    </form>
+  </div>
+
+  <!-- Успех -->
+  <div class="card hidden" id="success-card">
+    <div class="logo">Modulus</div>
+    <h1>Заявка принята ✓</h1>
+    <p class="subtitle" style="margin-bottom: 0">
+      Ключ будет отправлен на <strong id="success-email"></strong> после рассмотрения.
+    </p>
+  </div>
+</div>
+
+<script src="config.js"></script>
+<script>
+  const API = window.SUPABASE_FUNCTIONS_URL;
+
+  const form = document.getElementById('request-form');
+  const btn  = document.getElementById('submit-btn');
+  const err  = document.getElementById('alert-error');
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    err.classList.add('hidden');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span> Отправка…';
+
+    const name      = document.getElementById('name').value.trim();
+    const email     = document.getElementById('email').value.trim();
+    const machineId = document.getElementById('machineId').value.trim();
+
+    try {
+      const res = await fetch(`${API}/submit-request`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, email, machineId }),
+      });
+      const data = await res.json();
+
+      if (!res.ok) throw new Error(data.error ?? `HTTP ${res.status}`);
+
+      document.getElementById('success-email').textContent = email;
+      document.getElementById('form-card').classList.add('hidden');
+      document.getElementById('success-card').classList.remove('hidden');
+    } catch (e) {
+      err.textContent = e.message;
+      err.classList.remove('hidden');
+      btn.disabled = false;
+      btn.textContent = 'Отправить заявку';
+    }
+  });
+</script>
+</body>
+</html>
