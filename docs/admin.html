@@ -54,7 +54,7 @@
         <thead>
           <tr>
             <th>Имя</th>
-            <th>E-mail</th>
+            <th>Контакт</th>
             <th>Machine ID</th>
             <th>Дата</th>
             <th>Статус</th>
@@ -78,6 +78,7 @@
     <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:14px;margin-bottom:18px;font-size:13px;">
       <div><b id="ap-name"></b></div>
       <div style="color:#64748b" id="ap-email"></div>
+      <div style="color:#64748b" id="ap-telegram"></div>
       <div class="mono" style="margin-top:4px" id="ap-mid"></div>
     </div>
 
@@ -108,7 +109,7 @@
 <div class="modal-overlay hidden" id="key-modal">
   <div class="modal">
     <h2>Лицензионный ключ выдан ✓</h2>
-    <p style="font-size:13px;color:#64748b;margin-bottom:12px">Ключ отправлен на почту пользователя. Вы также можете скопировать его здесь:</p>
+    <p style="font-size:13px;color:#64748b;margin-bottom:12px" id="key-modal-desc">Ключ отправлен пользователю. Вы также можете скопировать его здесь:</p>
     <div class="copy-row">
       <div class="key-box" id="key-display"></div>
       <button class="btn btn--ghost btn--sm" id="copy-key-btn" style="white-space:nowrap">Копировать</button>
@@ -123,7 +124,7 @@
 <div class="modal-overlay hidden" id="reject-modal">
   <div class="modal">
     <h2>Отклонить заявку</h2>
-    <p style="font-size:14px;color:#64748b;margin-bottom:16px">Пользователь получит уведомление по e-mail.</p>
+    <p style="font-size:14px;color:#64748b;margin-bottom:16px" id="reject-desc">Пользователь получит уведомление.</p>
     <input type="hidden" id="reject-id" />
     <div class="alert alert--error hidden" id="reject-error"></div>
     <div class="modal-footer">
@@ -234,20 +235,26 @@ async function loadRequests() {
       return;
     }
 
-    tbody.innerHTML = rows.map(r => `
+    tbody.innerHTML = rows.map(r => {
+      const contact = [
+        r.email ? escHtml(r.email) : '',
+        r.telegram_chat_id ? `✈ ${escHtml(r.telegram_chat_id)}` : '',
+      ].filter(Boolean).join('<br>') || '—';
+      const tg = escHtml(r.telegram_chat_id ?? '');
+      return `
       <tr data-id="${r.id}">
         <td>${escHtml(r.name)}</td>
-        <td>${escHtml(r.email)}</td>
+        <td style="font-size:12px">${contact}</td>
         <td class="mono">${escHtml(r.machine_id)}</td>
         <td style="white-space:nowrap">${fmtDate(r.created_at)}</td>
         <td><span class="badge badge--${r.status}">${statusLabel(r.status)}</span></td>
         <td>
           <div class="actions">
             ${r.status === 'pending' ? `
-              <button class="btn btn--primary btn--sm" onclick="openApprove('${r.id}','${escHtml(r.name)}','${escHtml(r.email)}','${escHtml(r.machine_id)}')">
+              <button class="btn btn--primary btn--sm" onclick="openApprove('${r.id}','${escHtml(r.name)}','${escHtml(r.email ?? '')}','${escHtml(r.machine_id)}','${tg}')">
                 ✓ Одобрить
               </button>
-              <button class="btn btn--danger btn--sm" onclick="openReject('${r.id}')">
+              <button class="btn btn--danger btn--sm" onclick="openReject('${r.id}','${tg}')">
                 ✕ Отклонить
               </button>
             ` : ''}
@@ -259,7 +266,7 @@ async function loadRequests() {
           </div>
         </td>
       </tr>
-    `).join('');
+    `}).join('');
   } catch (err) {
     $('dash-error').textContent = err.message;
     show('dash-error');
@@ -272,12 +279,15 @@ function statusLabel(s) {
 }
 
 // ─── approve modal ───────────────────────────────────────────────────────────
-function openApprove(id, name, email, mid) {
+function openApprove(id, name, email, mid, telegram) {
   $('approve-id').value = id;
-  $('ap-name').textContent  = name;
-  $('ap-email').textContent = email;
-  $('ap-mid').textContent   = mid;
-  $('approve-expires').value = '';
+  $('ap-name').textContent     = name;
+  $('ap-email').textContent    = email || '';
+  $('ap-email').style.display  = email ? '' : 'none';
+  $('ap-telegram').textContent = telegram ? `✈ Telegram: ${telegram}` : '';
+  $('ap-telegram').style.display = telegram ? '' : 'none';
+  $('ap-mid').textContent      = mid;
+  $('approve-expires').value   = '';
   document.querySelectorAll('.feature-cb').forEach(cb => cb.checked = false);
   hide('approve-error');
   $('approve-confirm').disabled = false;
@@ -308,6 +318,10 @@ $('approve-confirm').addEventListener('click', async () => {
 
     hide('approve-modal');
     $('key-display').textContent = data.licenseKey;
+    const tg = $('ap-telegram').textContent;
+    $('key-modal-desc').textContent = tg
+      ? 'Ключ отправлен пользователю в Telegram. Вы также можете скопировать его здесь:'
+      : 'Ключ сгенерирован. Скопируйте и передайте пользователю:';
     show('key-modal');
     loadRequests();
   } catch (err) {
@@ -333,8 +347,11 @@ $('copy-key-btn').addEventListener('click', () => {
 });
 
 // ─── reject modal ────────────────────────────────────────────────────────────
-function openReject(id) {
+function openReject(id, telegram) {
   $('reject-id').value = id;
+  $('reject-desc').textContent = telegram
+    ? 'Пользователь получит уведомление в Telegram.'
+    : 'Пользователь получит уведомление (если указан e-mail).';
   hide('reject-error');
   $('reject-confirm').disabled = false;
   $('reject-confirm').textContent = 'Отклонить';

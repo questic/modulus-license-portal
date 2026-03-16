@@ -99,6 +99,13 @@ input:focus { border-color: var(--primary); }
   color: var(--muted);
   margin-top: 5px;
 }
+.hint--warn {
+  color: #92400e;
+  background: #fffbeb;
+  border: 1px solid #fcd34d;
+  border-radius: 6px;
+  padding: 5px 8px;
+}
 
 /* ── Buttons ── */
 .btn {

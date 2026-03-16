@@ -11,7 +11,7 @@
   <div class="card" id="form-card">
     <div class="logo">Modulus</div>
     <h1>Активация лицензии</h1>
-    <p class="subtitle">Заполните форму — мы вышлем ключ на ваш e-mail</p>
+    <p class="subtitle">Заполните форму — укажите e-mail или Telegram для получения ключа</p>
 
     <div class="alert alert--error" id="alert-error" style="display:none"></div>
 
@@ -22,14 +22,25 @@
       </div>
 
       <div class="form-group">
-        <label for="email">E-mail *</label>
-        <input type="email" id="email" name="email" placeholder="you@company.ru" required />
-      </div>
-
-      <div class="form-group">
         <label for="machineId">Machine ID *</label>
         <input type="text" id="machineId" name="machineId" placeholder="xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" required />
         <p class="hint">Откройте приложение → экран активации → скопируйте Machine ID</p>
+      </div>
+
+      <div class="form-group">
+        <label for="telegramChatId">Telegram Chat ID</label>
+        <input type="text" id="telegramChatId" name="telegramChatId" placeholder="123456789" inputmode="numeric" />
+        <p class="hint">
+          Чтобы узнать ваш Chat ID: напишите <b>/start</b> боту
+          <a href="https://t.me/ModulusLicenseBot" target="_blank">@ModulusLicenseBot</a>
+          — он пришлёт ваш ID в ответ.
+        </p>
+      </div>
+
+      <div class="form-group">
+        <label for="email">E-mail</label>
+        <input type="email" id="email" name="email" placeholder="you@company.ru" />
+        <p class="hint hint--warn">⚠ Отправка на e-mail временно не работает. Рекомендуем использовать Telegram.</p>
       </div>
 
       <button type="submit" class="btn btn--primary btn--full" id="submit-btn">
@@ -42,9 +53,7 @@
   <div class="card" id="success-card" style="display:none">
     <div class="logo">Modulus</div>
     <h1>Заявка принята ✓</h1>
-    <p class="subtitle" style="margin-bottom: 0">
-      Ключ будет отправлен на <strong id="success-email"></strong> после рассмотрения.
-    </p>
+    <p class="subtitle" style="margin-bottom: 0" id="success-msg"></p>
   </div>
 </div>
 
@@ -59,24 +68,37 @@
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
     err.style.display = 'none';
+
+    const name           = document.getElementById('name').value.trim();
+    const email          = document.getElementById('email').value.trim();
+    const telegramChatId = document.getElementById('telegramChatId').value.trim();
+    const machineId      = document.getElementById('machineId').value.trim();
+
+    if (!email && !telegramChatId) {
+      err.textContent = 'Укажите e-mail или Telegram Chat ID';
+      err.style.display = 'block';
+      return;
+    }
+
     btn.disabled = true;
     btn.innerHTML = '<span class="spinner"></span> Отправка…';
-
-    const name      = document.getElementById('name').value.trim();
-    const email     = document.getElementById('email').value.trim();
-    const machineId = document.getElementById('machineId').value.trim();
 
     try {
       const res = await fetch(`${API}/submit-request`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, email, machineId }),
+        body: JSON.stringify({ name, email, telegramChatId, machineId }),
       });
       const data = await res.json();
 
       if (!res.ok) throw new Error(data.error ?? `HTTP ${res.status}`);
 
-      document.getElementById('success-email').textContent = email;
+      const successMsg = document.getElementById('success-msg');
+      if (telegramChatId) {
+        successMsg.innerHTML = 'После рассмотрения заявки ключ придёт вам в <b>Telegram</b>.';
+      } else {
+        successMsg.innerHTML = `Ключ будет отправлен на <strong>${email}</strong> после рассмотрения.`;
+      }
       document.getElementById('form-card').style.display = 'none';
       document.getElementById('success-card').style.display = 'block';
     } catch (e) {

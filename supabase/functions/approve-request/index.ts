@@ -2,6 +2,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { cors, handleOptions } from '../_shared/cors.ts';
 import { generateLicenseKey, LicenseData } from '../_shared/crypto.ts';
 import { sendLicenseEmail } from '../_shared/email.ts';
+import { sendTelegramMessage } from '../_shared/telegram.ts';
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return handleOptions();
@@ -51,13 +52,30 @@ Deno.serve(async (req) => {
 
     if (updateErr) throw updateErr;
 
-    await sendLicenseEmail(
-      request.email,
-      request.name,
-      request.machine_id,
-      licenseKey,
-      licenseData.expiresAt,
-    ).catch(console.error);
+    // Отправка через Telegram (приоритет)
+    if (request.telegram_chat_id) {
+      const expiry = licenseData.expiresAt
+        ? `Срок действия: до ${licenseData.expiresAt}`
+        : 'Бессрочная лицензия';
+      await sendTelegramMessage(
+        request.telegram_chat_id,
+        `✅ <b>Ваша лицензия Modulus одобрена!</b>\n\n` +
+        `<b>Лицензионный ключ:</b>\n<code>${licenseKey}</code>\n\n` +
+        `${expiry}\n\n` +
+        `Скопируйте ключ и вставьте его в приложении на экране активации.`,
+      ).catch(console.error);
+    }
+
+    // Отправка по email (может не работать без домена)
+    if (request.email) {
+      await sendLicenseEmail(
+        request.email,
+        request.name,
+        request.machine_id,
+        licenseKey,
+        licenseData.expiresAt,
+      ).catch(console.error);
+    }
 
     return cors({ licenseKey });
   } catch (err) {

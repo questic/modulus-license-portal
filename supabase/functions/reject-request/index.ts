@@ -1,6 +1,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { cors, handleOptions } from '../_shared/cors.ts';
 import { sendRejectionEmail } from '../_shared/email.ts';
+import { sendTelegramMessage } from '../_shared/telegram.ts';
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return handleOptions();
@@ -21,7 +22,7 @@ Deno.serve(async (req) => {
 
     const { data: request, error: fetchErr } = await supabase
       .from('license_requests')
-      .select('name, email')
+      .select('name, email, telegram_chat_id')
       .eq('id', id)
       .single();
 
@@ -34,7 +35,19 @@ Deno.serve(async (req) => {
 
     if (updateErr) throw updateErr;
 
-    await sendRejectionEmail(request.email, request.name).catch(console.error);
+    // Уведомление через Telegram (приоритет)
+    if (request.telegram_chat_id) {
+      await sendTelegramMessage(
+        request.telegram_chat_id,
+        `❌ <b>Заявка на лицензию Modulus отклонена.</b>\n\n` +
+        `Если у вас есть вопросы, свяжитесь с нами.`,
+      ).catch(console.error);
+    }
+
+    // Уведомление по email (может не работать без домена)
+    if (request.email) {
+      await sendRejectionEmail(request.email, request.name).catch(console.error);
+    }
 
     return cors({ ok: true });
   } catch (err) {
