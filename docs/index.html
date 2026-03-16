@@ -13,7 +13,7 @@
     <h1>Активация лицензии</h1>
     <p class="subtitle">Заполните форму — мы вышлем ключ на ваш e-mail</p>
 
-    <div class="alert alert--error hidden" id="alert-error"></div>
+    <div class="alert alert--error" id="alert-error" style="display:none"></div>
 
     <form id="request-form">
       <div class="form-group">
@@ -39,7 +39,7 @@
   </div>
 
   <!-- Успех -->
-  <div class="card hidden" id="success-card">
+  <div class="card" id="success-card" style="display:none">
     <div class="logo">Modulus</div>
     <h1>Заявка принята ✓</h1>
     <p class="subtitle" style="margin-bottom: 0">
@@ -58,7 +58,7 @@
 
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
-    err.classList.add('hidden');
+    err.style.display = 'none';
     btn.disabled = true;
     btn.innerHTML = '<span class="spinner"></span> Отправка…';
 
@@ -77,11 +77,11 @@
       if (!res.ok) throw new Error(data.error ?? `HTTP ${res.status}`);
 
       document.getElementById('success-email').textContent = email;
-      document.getElementById('form-card').classList.add('hidden');
-      document.getElementById('success-card').classList.remove('hidden');
+      document.getElementById('form-card').style.display = 'none';
+      document.getElementById('success-card').style.display = 'block';
     } catch (e) {
       err.textContent = e.message;
-      err.classList.remove('hidden');
+      err.style.display = 'block';
       btn.disabled = false;
       btn.textContent = 'Отправить заявку';
     }
