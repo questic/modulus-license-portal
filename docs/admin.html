@@ -42,32 +42,87 @@
     </div>
 
     <div class="tabs">
-      <div class="tab active" data-status="pending">Ожидают <span id="cnt-pending" class="cnt"></span></div>
-      <div class="tab" data-status="approved">Одобрены</div>
-      <div class="tab" data-status="rejected">Отклонены</div>
-      <div class="tab" data-status="all">Все</div>
+      <div class="tab active" data-tab="requests" data-status="pending">Ожидают <span id="cnt-pending" class="cnt"></span></div>
+      <div class="tab" data-tab="requests" data-status="approved">Одобрены</div>
+      <div class="tab" data-tab="requests" data-status="rejected">Отклонены</div>
+      <div class="tab" data-tab="requests" data-status="all">Все заявки</div>
+      <div class="tab tab--issue" data-tab="issue">＋ Выдать лицензию</div>
     </div>
 
-    <div class="alert alert--error hidden" id="dash-error"></div>
+    <!-- Список заявок -->
+    <div id="tab-requests">
+      <div class="alert alert--error hidden" id="dash-error"></div>
+      <div class="table-wrap">
+        <table id="requests-table">
+          <thead>
+            <tr>
+              <th>Имя</th>
+              <th>Контакт</th>
+              <th>Machine ID</th>
+              <th>Дата</th>
+              <th>Срок</th>
+              <th>Функции</th>
+              <th>Статус</th>
+              <th>Действия</th>
+            </tr>
+          </thead>
+          <tbody id="requests-body">
+            <tr><td colspan="8" class="empty">Загрузка…</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
 
-    <div class="table-wrap">
-      <table id="requests-table">
-        <thead>
-          <tr>
-            <th>Имя</th>
-            <th>Контакт</th>
-            <th>Machine ID</th>
-            <th>Дата</th>
-            <th>Срок</th>
-            <th>Функции</th>
-            <th>Статус</th>
-            <th>Действия</th>
-          </tr>
-        </thead>
-        <tbody id="requests-body">
-          <tr><td colspan="8" class="empty">Загрузка…</td></tr>
-        </tbody>
-      </table>
+    <!-- Форма выдачи лицензии без заявки -->
+    <div id="tab-issue" class="hidden">
+      <div class="issue-form-wrap">
+        <h2 style="margin-bottom:18px">Выдать лицензию без заявки</h2>
+
+        <div class="form-group">
+          <label for="issue-name">Имя / Организация <span style="color:#dc2626">*</span></label>
+          <input type="text" id="issue-name" placeholder="Иван Петров / ООО Проект" />
+        </div>
+        <div class="form-group">
+          <label for="issue-mid">Machine ID <span style="color:#dc2626">*</span></label>
+          <input type="text" id="issue-mid" placeholder="xxxx-xxxx-xxxx-xxxx" class="mono" />
+        </div>
+        <div class="form-group">
+          <label for="issue-email">E-mail (необязательно)</label>
+          <input type="email" id="issue-email" placeholder="user@example.com" />
+        </div>
+        <div class="form-group">
+          <label for="issue-telegram">Telegram Chat ID (необязательно)</label>
+          <input type="text" id="issue-telegram" placeholder="123456789" />
+        </div>
+        <div class="form-group">
+          <label for="issue-expires">Срок действия (пусто — бессрочная)</label>
+          <input type="date" id="issue-expires" />
+        </div>
+        <div class="form-group">
+          <label>Функции</label>
+          <div class="checkbox-group">
+            <label><input type="checkbox" value="libraries" class="issue-feature-cb" /> Пользовательские библиотеки</label>
+            <label><input type="checkbox" value="reports" class="issue-feature-cb" /> Отчёты (PDF/Excel)</label>
+            <label><input type="checkbox" value="teamwork" class="issue-feature-cb" /> Командная работа</label>
+          </div>
+        </div>
+
+        <div class="alert alert--error hidden" id="issue-error"></div>
+        <div class="alert alert--success hidden" id="issue-success"></div>
+
+        <div style="display:flex; gap:10px; margin-top:6px">
+          <button class="btn btn--primary" id="issue-btn">Выдать лицензию</button>
+          <button class="btn btn--ghost" id="issue-reset">Очистить</button>
+        </div>
+
+        <div class="hidden" id="issue-result" style="margin-top:20px">
+          <label style="font-size:13px;font-weight:600;color:#1e293b">Лицензионный ключ:</label>
+          <div class="copy-row" style="margin-top:6px">
+            <div class="key-box" id="issue-key-display"></div>
+            <button class="btn btn--ghost btn--sm" id="issue-copy-btn" style="white-space:nowrap">Копировать</button>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 </div>
@@ -94,6 +149,8 @@
       <label>Функции</label>
       <div class="checkbox-group">
         <label><input type="checkbox" value="libraries" class="feature-cb" /> Пользовательские библиотеки</label>
+        <label><input type="checkbox" value="reports" class="feature-cb" /> Отчёты (PDF/Excel)</label>
+        <label><input type="checkbox" value="teamwork" class="feature-cb" /> Командная работа</label>
       </div>
     </div>
 
@@ -104,6 +161,47 @@
       <button class="btn btn--primary" id="approve-confirm">
         Выдать ключ
       </button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════ EDIT MODAL ══════════════════════════════ -->
+<div class="modal-overlay hidden" id="edit-modal">
+  <div class="modal">
+    <h2>Редактировать лицензию</h2>
+    <input type="hidden" id="edit-id" />
+
+    <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:14px;margin-bottom:18px;font-size:13px;">
+      <div><b id="edit-name-display"></b></div>
+      <div class="mono" style="margin-top:4px;color:#64748b" id="edit-mid-display"></div>
+    </div>
+
+    <div class="form-group">
+      <label for="edit-expires">Срок действия (оставьте пустым — бессрочная)</label>
+      <input type="date" id="edit-expires" />
+    </div>
+
+    <div class="form-group">
+      <label>Функции</label>
+      <div class="checkbox-group">
+        <label><input type="checkbox" value="libraries" class="edit-feature-cb" /> Пользовательские библиотеки</label>
+        <label><input type="checkbox" value="reports" class="edit-feature-cb" /> Отчёты (PDF/Excel)</label>
+        <label><input type="checkbox" value="teamwork" class="edit-feature-cb" /> Командная работа</label>
+      </div>
+    </div>
+
+    <div class="form-group" style="margin-top:4px">
+      <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+        <input type="checkbox" id="edit-notify" />
+        Уведомить пользователя в Telegram о новом ключе
+      </label>
+    </div>
+
+    <div class="alert alert--error hidden" id="edit-error"></div>
+
+    <div class="modal-footer">
+      <button class="btn btn--ghost" id="edit-cancel">Отмена</button>
+      <button class="btn btn--primary" id="edit-confirm">Сохранить и перевыдать ключ</button>
     </div>
   </div>
 </div>
@@ -142,6 +240,7 @@
 const API = window.SUPABASE_FUNCTIONS_URL;
 let adminPassword = '';
 let currentStatus = 'pending';
+let currentTab = 'requests';
 
 // ─── helpers ────────────────────────────────────────────────────────────────
 const $ = (id) => document.getElementById(id);
@@ -152,7 +251,13 @@ function fmtDate(iso) {
   return new Date(iso).toLocaleDateString('ru-RU', { day:'2-digit', month:'2-digit', year:'numeric' });
 }
 function escHtml(s) {
-  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+function statusLabel(s) {
+  return { pending: 'Ожидает', approved: 'Одобрена', rejected: 'Отклонена' }[s] ?? s;
+}
+function featureLabel(f) {
+  return { libraries: 'Библиотеки', reports: 'Отчёты', teamwork: 'Командная' }[f] ?? f;
 }
 
 // ─── login ──────────────────────────────────────────────────────────────────
@@ -164,7 +269,6 @@ $('login-form').addEventListener('submit', async (e) => {
   btn.innerHTML = '<span class="spinner"></span>';
   hide('login-error');
 
-  // Проверяем пароль реальным запросом
   const res = await fetch(`${API}/list-requests?status=pending`, {
     headers: { 'x-admin-password': pwd },
   });
@@ -185,7 +289,6 @@ $('login-form').addEventListener('submit', async (e) => {
   btn.textContent = 'Войти';
 });
 
-// Восстановить сессию
 (function tryRestore() {
   const saved = sessionStorage.getItem('adminPwd');
   if (saved) {
@@ -203,22 +306,35 @@ $('logout-btn').addEventListener('click', () => {
   show('login-screen');
 });
 
-$('refresh-btn').addEventListener('click', loadRequests);
+$('refresh-btn').addEventListener('click', () => {
+  if (currentTab === 'requests') loadRequests();
+});
 
 // ─── tabs ────────────────────────────────────────────────────────────────────
 document.querySelectorAll('.tab').forEach((tab) => {
   tab.addEventListener('click', () => {
     document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
     tab.classList.add('active');
-    currentStatus = tab.dataset.status;
-    loadRequests();
+
+    const tabTarget = tab.dataset.tab;
+    currentTab = tabTarget;
+
+    if (tabTarget === 'issue') {
+      hide('tab-requests');
+      show('tab-issue');
+    } else {
+      show('tab-requests');
+      hide('tab-issue');
+      currentStatus = tab.dataset.status;
+      loadRequests();
+    }
   });
 });
 
-// ─── load ────────────────────────────────────────────────────────────────────
+// ─── load requests ───────────────────────────────────────────────────────────
 async function loadRequests() {
   const tbody = $('requests-body');
-  tbody.innerHTML = '<tr><td colspan="6" class="empty">Загрузка…</td></tr>';
+  tbody.innerHTML = '<tr><td colspan="8" class="empty">Загрузка…</td></tr>';
   hide('dash-error');
 
   try {
@@ -228,7 +344,6 @@ async function loadRequests() {
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const rows = await res.json();
 
-    // Обновить счётчик на вкладке "Ожидают"
     if (currentStatus === 'pending') {
       $('cnt-pending').textContent = rows.length ? ` (${rows.length})` : '';
     }
@@ -250,6 +365,7 @@ async function loadRequests() {
       const features = r.status === 'approved' && r.features && r.features.length
         ? r.features.map(f => `<span class="badge badge--feature">${featureLabel(f)}</span>`).join(' ')
         : '—';
+      const featuresJson = escHtml(JSON.stringify(r.features ?? []));
       return `
       <tr data-id="${r.id}">
         <td>${escHtml(r.name)}</td>
@@ -269,6 +385,11 @@ async function loadRequests() {
                 ✕ Отклонить
               </button>
             ` : ''}
+            ${r.status === 'approved' ? `
+              <button class="btn btn--ghost btn--sm" onclick="openEdit('${r.id}','${escHtml(r.name)}','${escHtml(r.machine_id)}','${escHtml(r.expires_at ?? '')}','${featuresJson}','${!!r.telegram_chat_id}')">
+                ✎ Редактировать
+              </button>
+            ` : ''}
             ${r.status === 'approved' && r.license_key ? `
               <button class="btn btn--ghost btn--sm" onclick="showKey('${escHtml(r.license_key)}')">
                 Показать ключ
@@ -283,13 +404,6 @@ async function loadRequests() {
     show('dash-error');
     tbody.innerHTML = '';
   }
-}
-
-function statusLabel(s) {
-  return { pending: 'Ожидает', approved: 'Одобрена', rejected: 'Отклонена' }[s] ?? s;
-}
-function featureLabel(f) {
-  return { libraries: 'Библиотеки' }[f] ?? f;
 }
 
 // ─── approve modal ───────────────────────────────────────────────────────────
@@ -313,9 +427,9 @@ $('approve-cancel').addEventListener('click', () => hide('approve-modal'));
 $('approve-modal').addEventListener('click', (e) => { if (e.target === $('approve-modal')) hide('approve-modal'); });
 
 $('approve-confirm').addEventListener('click', async () => {
-  const id       = $('approve-id').value;
+  const id        = $('approve-id').value;
   const expiresAt = $('approve-expires').value || null;
-  const features = [...document.querySelectorAll('.feature-cb:checked')].map(cb => cb.value);
+  const features  = [...document.querySelectorAll('.feature-cb:checked')].map(cb => cb.value);
   const btn = $('approve-confirm');
   btn.disabled = true;
   btn.innerHTML = '<span class="spinner"></span> Выдача…';
@@ -346,9 +460,134 @@ $('approve-confirm').addEventListener('click', async () => {
   }
 });
 
+// ─── edit modal ───────────────────────────────────────────────────────────────
+function openEdit(id, name, mid, expiresAt, featuresJson, hasTelegram) {
+  $('edit-id').value = id;
+  $('edit-name-display').textContent = name;
+  $('edit-mid-display').textContent  = mid;
+  $('edit-expires').value = expiresAt || '';
+  $('edit-notify').checked = false;
+  $('edit-notify').closest('.form-group').style.display = hasTelegram === 'true' ? '' : 'none';
+
+  let features = [];
+  try { features = JSON.parse(featuresJson); } catch {}
+  document.querySelectorAll('.edit-feature-cb').forEach(cb => {
+    cb.checked = features.includes(cb.value);
+  });
+
+  hide('edit-error');
+  $('edit-confirm').disabled = false;
+  $('edit-confirm').textContent = 'Сохранить и перевыдать ключ';
+  show('edit-modal');
+}
+
+$('edit-cancel').addEventListener('click', () => hide('edit-modal'));
+$('edit-modal').addEventListener('click', (e) => { if (e.target === $('edit-modal')) hide('edit-modal'); });
+
+$('edit-confirm').addEventListener('click', async () => {
+  const id        = $('edit-id').value;
+  const expiresAt = $('edit-expires').value || null;
+  const features  = [...document.querySelectorAll('.edit-feature-cb:checked')].map(cb => cb.value);
+  const notify    = $('edit-notify').checked;
+  const btn = $('edit-confirm');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> Сохранение…';
+  hide('edit-error');
+
+  try {
+    const res = await fetch(`${API}/edit-license`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-admin-password': adminPassword },
+      body: JSON.stringify({ id, expiresAt, features, notify }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error ?? `HTTP ${res.status}`);
+
+    hide('edit-modal');
+    $('key-display').textContent = data.licenseKey;
+    $('key-modal-desc').textContent = notify
+      ? 'Лицензия обновлена и отправлена пользователю в Telegram. Новый ключ:'
+      : 'Лицензия обновлена. Новый ключ (передайте пользователю вручную):';
+    show('key-modal');
+    loadRequests();
+  } catch (err) {
+    $('edit-error').textContent = err.message;
+    show('edit-error');
+    btn.disabled = false;
+    btn.textContent = 'Сохранить и перевыдать ключ';
+  }
+});
+
+// ─── issue license (без заявки) ───────────────────────────────────────────────
+$('issue-btn').addEventListener('click', async () => {
+  const name       = $('issue-name').value.trim();
+  const machineId  = $('issue-mid').value.trim();
+  const email      = $('issue-email').value.trim() || null;
+  const telegramChatId = $('issue-telegram').value.trim() || null;
+  const expiresAt  = $('issue-expires').value || null;
+  const features   = [...document.querySelectorAll('.issue-feature-cb:checked')].map(cb => cb.value);
+  const btn = $('issue-btn');
+
+  hide('issue-error');
+  hide('issue-success');
+  hide('issue-result');
+
+  if (!name || !machineId) {
+    $('issue-error').textContent = 'Имя и Machine ID обязательны';
+    show('issue-error');
+    return;
+  }
+
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> Выдача…';
+
+  try {
+    const res = await fetch(`${API}/issue-license`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-admin-password': adminPassword },
+      body: JSON.stringify({ name, machineId, email, telegramChatId, expiresAt, features }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error ?? `HTTP ${res.status}`);
+
+    $('issue-key-display').textContent = data.licenseKey;
+    show('issue-result');
+    $('issue-success').textContent = telegramChatId
+      ? '✓ Лицензия выдана и отправлена в Telegram'
+      : '✓ Лицензия выдана';
+    show('issue-success');
+  } catch (err) {
+    $('issue-error').textContent = err.message;
+    show('issue-error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Выдать лицензию';
+  }
+});
+
+$('issue-reset').addEventListener('click', () => {
+  $('issue-name').value = '';
+  $('issue-mid').value = '';
+  $('issue-email').value = '';
+  $('issue-telegram').value = '';
+  $('issue-expires').value = '';
+  document.querySelectorAll('.issue-feature-cb').forEach(cb => cb.checked = false);
+  hide('issue-error');
+  hide('issue-success');
+  hide('issue-result');
+});
+
+$('issue-copy-btn').addEventListener('click', () => {
+  navigator.clipboard.writeText($('issue-key-display').textContent).then(() => {
+    $('issue-copy-btn').textContent = 'Скопировано!';
+    setTimeout(() => $('issue-copy-btn').textContent = 'Копировать', 1500);
+  });
+});
+
 // ─── key modal ───────────────────────────────────────────────────────────────
 function showKey(key) {
   $('key-display').textContent = key;
+  $('key-modal-desc').textContent = 'Лицензионный ключ:';
   show('key-modal');
 }
 $('key-close').addEventListener('click', () => hide('key-modal'));

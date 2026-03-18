@@ -255,3 +255,17 @@ tr:hover td { background: #f8fafc; }
 
 /* ── Machine ID mono ── */
 .mono { font-family: monospace; font-size: 12px; color: var(--muted); }
+
+/* ── Issue tab highlight ── */
+.tab--issue { color: var(--primary); }
+.tab--issue:not(.active) { opacity: .75; }
+
+/* ── Issue form ── */
+.issue-form-wrap {
+  max-width: 560px;
+  padding: 8px 0 24px;
+}
+.issue-form-wrap h2 { color: var(--text); }
+
+/* ── cnt badge on tab ── */
+.cnt { font-size: 12px; color: var(--muted); font-weight: 400; }
