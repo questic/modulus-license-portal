@@ -4,16 +4,16 @@ import { generateLicenseKey, LicenseData } from '../_shared/crypto.ts';
 import { sendTelegramMessage } from '../_shared/telegram.ts';
 
 Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') return handleOptions();
+  if (req.method === 'OPTIONS') return handleOptions(req);
 
   const password = req.headers.get('x-admin-password');
   if (!password || password !== Deno.env.get('ADMIN_PASSWORD')) {
-    return cors({ error: 'Unauthorized' }, 401);
+    return cors(req, { error: 'Unauthorized' }, 401);
   }
 
   try {
     const { id, expiresAt, features, notify } = await req.json();
-    if (!id) return cors({ error: 'id обязателен' }, 400);
+    if (!id) return cors(req, { error: 'id обязателен' }, 400);
 
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL')!,
@@ -26,7 +26,7 @@ Deno.serve(async (req) => {
       .eq('id', id)
       .single();
 
-    if (fetchErr || !request) return cors({ error: 'Запись не найдена' }, 404);
+    if (fetchErr || !request) return cors(req, { error: 'Запись не найдена' }, 404);
 
     const licenseData: LicenseData = {
       machineId: request.machine_id,
@@ -64,9 +64,9 @@ Deno.serve(async (req) => {
       ).catch(console.error);
     }
 
-    return cors({ licenseKey });
+    return cors(req, { licenseKey });
   } catch (err) {
     console.error(err);
-    return cors({ error: 'Ошибка сервера' }, 500);
+    return cors(req, { error: 'Ошибка сервера' }, 500);
   }
 });

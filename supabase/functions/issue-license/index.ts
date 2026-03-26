@@ -4,16 +4,16 @@ import { generateLicenseKey, LicenseData } from '../_shared/crypto.ts';
 import { sendTelegramMessage } from '../_shared/telegram.ts';
 
 Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') return handleOptions();
+  if (req.method === 'OPTIONS') return handleOptions(req);
 
   const password = req.headers.get('x-admin-password');
   if (!password || password !== Deno.env.get('ADMIN_PASSWORD')) {
-    return cors({ error: 'Unauthorized' }, 401);
+    return cors(req, { error: 'Unauthorized' }, 401);
   }
 
   try {
     const { name, machineId, expiresAt, features, telegramChatId, email } = await req.json();
-    if (!name || !machineId) return cors({ error: 'name и machineId обязательны' }, 400);
+    if (!name || !machineId) return cors(req, { error: 'name и machineId обязательны' }, 400);
 
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL')!,
@@ -59,9 +59,9 @@ Deno.serve(async (req) => {
       ).catch(console.error);
     }
 
-    return cors({ licenseKey });
+    return cors(req, { licenseKey });
   } catch (err) {
     console.error(err);
-    return cors({ error: 'Ошибка сервера' }, 500);
+    return cors(req, { error: 'Ошибка сервера' }, 500);
   }
 });

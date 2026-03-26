@@ -2,11 +2,11 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { cors, handleOptions } from '../_shared/cors.ts';
 
 Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') return handleOptions();
+  if (req.method === 'OPTIONS') return handleOptions(req);
 
   const password = req.headers.get('x-admin-password');
   if (!password || password !== Deno.env.get('ADMIN_PASSWORD')) {
-    return cors({ error: 'Unauthorized' }, 401);
+    return cors(req, { error: 'Unauthorized' }, 401);
   }
 
   try {
@@ -30,9 +30,9 @@ Deno.serve(async (req) => {
     const { data, error } = await query;
     if (error) throw error;
 
-    return cors(data);
+    return cors(req, data);
   } catch (err) {
     console.error(err);
-    return cors({ error: 'Ошибка сервера' }, 500);
+    return cors(req, { error: 'Ошибка сервера' }, 500);
   }
 });

@@ -44,6 +44,15 @@
         <p class="hint hint--warn">⚠ Отправка на e-mail временно не работает. Рекомендуем использовать Telegram.</p>
       </div>
 
+      <div class="form-group hidden" aria-hidden="true" style="display:none">
+        <label for="company">Company</label>
+        <input type="text" id="company" name="company" tabindex="-1" autocomplete="off" />
+      </div>
+
+      <div class="form-group hidden" id="turnstile-wrap">
+        <div id="turnstile-widget"></div>
+      </div>
+
       <button type="submit" class="btn btn--primary btn--full" id="submit-btn">
         Отправить заявку
       </button>
@@ -65,6 +74,31 @@
   const form = document.getElementById('request-form');
   const btn  = document.getElementById('submit-btn');
   const err  = document.getElementById('alert-error');
+  let turnstileToken = '';
+  let turnstileWidgetId = null;
+
+  if (window.TURNSTILE_SITE_KEY) {
+    const script = document.createElement('script');
+    script.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit';
+    script.async = true;
+    script.defer = true;
+    script.onload = () => {
+      document.getElementById('turnstile-wrap').classList.remove('hidden');
+      turnstileWidgetId = window.turnstile.render('#turnstile-widget', {
+        sitekey: window.TURNSTILE_SITE_KEY,
+        callback(token) {
+          turnstileToken = token;
+        },
+        'expired-callback'() {
+          turnstileToken = '';
+        },
+        'error-callback'() {
+          turnstileToken = '';
+        },
+      });
+    };
+    document.head.appendChild(script);
+  }
 
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -74,9 +108,15 @@
     const email          = document.getElementById('email').value.trim();
     const telegramChatId = document.getElementById('telegramChatId').value.trim();
     const machineId      = document.getElementById('machineId').value.trim();
+    const company        = document.getElementById('company').value.trim();
 
     if (!email && !telegramChatId) {
       err.textContent = 'Укажите e-mail или Telegram Chat ID';
+      err.style.display = 'block';
+      return;
+    }
+    if (window.TURNSTILE_SITE_KEY && !turnstileToken) {
+      err.textContent = 'Подтвердите, что вы не робот';
       err.style.display = 'block';
       return;
     }
@@ -88,7 +128,7 @@
       const res = await fetch(`${API}/submit-request`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, email, telegramChatId, machineId }),
+        body: JSON.stringify({ name, email, telegramChatId, machineId, turnstileToken, company }),
       });
       const data = await res.json();
 
@@ -107,6 +147,10 @@
       err.style.display = 'block';
       btn.disabled = false;
       btn.textContent = 'Отправить заявку';
+      if (window.turnstile && turnstileWidgetId !== null) {
+        window.turnstile.reset(turnstileWidgetId);
+        turnstileToken = '';
+      }
     }
   });
 </script>

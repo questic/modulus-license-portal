@@ -4,16 +4,16 @@ import { sendRejectionEmail } from '../_shared/email.ts';
 import { sendTelegramMessage } from '../_shared/telegram.ts';
 
 Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') return handleOptions();
+  if (req.method === 'OPTIONS') return handleOptions(req);
 
   const password = req.headers.get('x-admin-password');
   if (!password || password !== Deno.env.get('ADMIN_PASSWORD')) {
-    return cors({ error: 'Unauthorized' }, 401);
+    return cors(req, { error: 'Unauthorized' }, 401);
   }
 
   try {
     const { id } = await req.json();
-    if (!id) return cors({ error: 'id обязателен' }, 400);
+    if (!id) return cors(req, { error: 'id обязателен' }, 400);
 
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL')!,
@@ -26,7 +26,7 @@ Deno.serve(async (req) => {
       .eq('id', id)
       .single();
 
-    if (fetchErr || !request) return cors({ error: 'Заявка не найдена' }, 404);
+    if (fetchErr || !request) return cors(req, { error: 'Заявка не найдена' }, 404);
 
     const { error: updateErr } = await supabase
       .from('license_requests')
@@ -49,9 +49,9 @@ Deno.serve(async (req) => {
       await sendRejectionEmail(request.email, request.name).catch(console.error);
     }
 
-    return cors({ ok: true });
+    return cors(req, { ok: true });
   } catch (err) {
     console.error(err);
-    return cors({ error: 'Ошибка сервера' }, 500);
+    return cors(req, { error: 'Ошибка сервера' }, 500);
   }
 });
